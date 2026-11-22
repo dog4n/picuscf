@@ -1,0 +1,21 @@
+# Sırlar (şablon: .env.example)
+.env
+
+# Çalışma zamanı verisi
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+logs/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

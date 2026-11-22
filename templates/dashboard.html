@@ -1,0 +1,63 @@
+{% extends "base.html" %}{% from "macros.html" import kpis, badge with context %}
+{% block title %}Pano{% endblock %}
+{% block body %}
+<div class="head">
+  <h1>Pano</h1>
+  <form method="get" class="inline">
+    <label class="inline">Kategori
+      <select name="kategori" data-autosubmit>
+        <option {{ 'selected' if kat == 'Tümü' }}>Tümü</option>
+        {% for k in kats %}<option {{ 'selected' if kat == k }}>{{ k }}</option>{% endfor %}
+      </select>
+    </label>
+  </form>
+</div>
+
+{% if cur %}
+<p class="muted">Son koşum: <a href="{{ url_for('run_detail', run_id=cur_run.id) }}">{{ cur_run.name }}</a> · {{ rdate(cur_run)|tr('d') }}
+{% if prev_run %} — önceki: <a href="{{ url_for('run_detail', run_id=prev_run.id) }}">{{ prev_run.name }}</a> · {{ rdate(prev_run)|tr('d') }}
+ · <a href="{{ url_for('compare', a=prev_run.id, b=cur_run.id) }}">Karşılaştır →</a>{% endif %}</p>
+{{ kpis(cur, prev) }}
+
+<div class="grid2">
+  <div class="card"><h3>Aksiyon skoru (%)</h3><div class="chart" data-src="trend-data" data-key="skor" data-changes="change-data"></div></div>
+  <div class="card"><h3>Bloklanmayan aksiyon</h3><div class="chart" data-src="trend-data" data-key="nb_aksiyon" data-changes="change-data"></div></div>
+  <div class="card"><h3>Kritik</h3><div class="chart" data-src="trend-data" data-key="kritik" data-changes="change-data"></div></div>
+  <div class="card"><h3>Kırılgan blok</h3><div class="chart" data-src="trend-data" data-key="kirilgan" data-changes="change-data"></div></div>
+</div>
+<script type="application/json" id="trend-data">{{ trend|tojson }}</script>
+<script type="application/json" id="change-data">{{ changes|tojson }}</script>
+{% else %}
+<div class="card"><p>Henüz tamamlanmış koşum yok.{% if me.role == 'admin' %} <a href="{{ url_for('run_new') }}">İlk koşumu ekleyin →</a>{% endif %}</p></div>
+{% endif %}
+
+<div class="card">
+  <h3>Koşumlar <span class="muted small">(koşum tarihine göre, yeniden eskiye)</span></h3>
+  <table class="list">
+    <thead><tr><th>Koşum</th><th>Koşum tarihi</th><th>Picus</th><th>CF</th><th>Durum</th><th class="r">Skor</th><th class="r">NB aksiyon</th><th class="r">Kritik</th><th class="r">Kırılgan</th></tr></thead>
+    <tbody>
+    {% for r in runs %}{% set s = sums.get(r.id) %}
+      <tr>
+        <td><a href="{{ url_for('run_detail', run_id=r.id) }}">{{ r.name }}</a>{% if r.origin == 'otomatik' %} <span class="tag">otomatik</span>{% endif %}</td>
+        <td>{{ rdate(r)|tr }}</td>
+        <td>{{ 'API' if r.picus_source == 'api' else 'CSV' }}</td>
+        <td>{{ 'API' if r.source == 'api' else 'CSV' }}</td>
+        <td>{{ badge(r.status) }}</td>
+        <td class="r">{{ s.skor|num(1) if s else '—' }}</td>
+        <td class="r">{{ s.nb_aksiyon|num if s else '—' }}</td>
+        <td class="r">{{ s.kritik|num if s else '—' }}</td>
+        <td class="r">{{ s.kirilgan|num if s else '—' }}</td>
+      </tr>
+    {% else %}<tr><td colspan="9" class="muted">Koşum yok.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if recent %}
+<div class="card">
+  <h3>Son değişiklikler</h3>
+  <ul class="changes">{% for c in recent %}<li><b>{{ c.tarih }}</b> <span class="tag">{{ c.alan }}</span> {{ c.aciklama }}</li>{% endfor %}</ul>
+  <a href="{{ url_for('changes') }}">Tümü →</a>
+</div>
+{% endif %}
+{% endblock %}

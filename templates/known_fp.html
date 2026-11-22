@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% block title %}Bilinen FP{% endblock %}
+{% block body %}
+<h1>Bilinen FP / kapatılmış kurallar</h1>
+<p class="muted">FP nedeniyle prod'da kapattığınız ya da Block'a alınmaması gereken kurallar. Bu listedeki kurallar Prod FP'de her zaman
+<b>F – Bilinen FP: Block'a alma</b> olarak gösterilir. Kapalı kural log üretmediği için prod'da "0 olay" görünür; bu liste o tuzağı önler.</p>
+
+<div class="grid2">
+<form method="post" action="{{ url_for('list_check') }}" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h3>Block listesini kontrol et</h3>
+  <label>Block'a almayı planladığınız kuralları yapıştırın (satır başına "kural adı  ruleId")<textarea name="liste" rows="8"></textarea></label>
+  <button class="btn primary">Kontrol et</button>
+</form>
+{% if me.role == 'admin' %}
+<form method="post" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="ekle">
+  <h3>Listeye ekle</h3>
+  <label>Kurallar (satır başına "kural adı  ruleId"; Excel'den kopyalanabilir)<textarea name="liste" rows="6"></textarea></label>
+  <label>Not (ör. neden kapatıldı)<input name="note"></label>
+  <button class="btn">Ekle</button>
+</form>
+{% endif %}
+</div>
+
+{% if check is defined %}
+<div class="card"><h3>Kontrol sonucu: {{ check|selectattr('fp')|list|length }} / {{ check|length }} kural bilinen FP listesinde</h3>
+<table class="list"><thead><tr><th>Sonuç</th><th>Kural</th><th>Rule ID</th><th>Not</th></tr></thead><tbody>
+{% for x in check|sort(attribute='fp', reverse=true) %}<tr class="{{ 'fp' if x.fp }}"><td>{% if x.fp %}<span class="tag red">FP listesinde – çıkarın</span>{% else %}<span class="tag green">temiz</span>{% endif %}</td><td>{{ x.kural }}</td><td class="mono">{{ x.rule_id }}</td><td>{{ x['not'] }}</td></tr>{% endfor %}
+</tbody></table>
+{% set clean = check|rejectattr('fp')|list %}
+{% if clean %}<h3>Temiz liste ({{ clean|length }})</h3><textarea rows="{{ [clean|length, 12]|min }}" readonly class="mono">{% for x in clean %}{{ x.kural }}	{{ x.rule_id }}
+{% endfor %}</textarea>{% endif %}
+</div>
+{% endif %}
+
+<div class="card"><h3>Liste ({{ rows|length }})</h3>
+<table class="list"><thead><tr><th>Kural</th><th>Rule ID</th><th>Not</th><th>Ekleyen</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.kural }}</td><td class="mono">{{ r.rule_id }}</td><td>{{ r.note or '' }}</td><td>{{ r.created_by }} · {{ r.created_at|tr('d') }}</td>
+<td>{% if me.role == 'admin' %}<form method="post" class="inline" data-confirm="Listeden çıkarılsın mı?"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="sil"><input type="hidden" name="rule_id" value="{{ r.rule_id }}"><button class="link">çıkar</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Liste boş.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

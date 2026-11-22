@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% from "macros.html" import kpis with context %}
+{% block title %}Karşılaştır{% endblock %}
+{% block body %}
+<div class="head"><h1>Koşum karşılaştırma</h1>
+  {% if res %}<a class="btn" href="{{ url_for('compare_excel', a=a.id, b=b.id) }}">Excel</a>{% endif %}</div>
+<form method="get" class="card row">
+  <label>Önceki koşum<select name="a">{% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if a and a.id == r.id }}>{{ r.name }} · {{ rdate(r)|tr('d') }}</option>{% endfor %}</select></label>
+  <label>Güncel koşum<select name="b">{% for r in runs|reverse %}<option value="{{ r.id }}" {{ 'selected' if b and b.id == r.id }}>{{ r.name }} · {{ rdate(r)|tr('d') }}</option>{% endfor %}</select></label>
+  <button class="btn primary">Karşılaştır</button>
+</form>
+{% if not res %}
+  <div class="card"><p>Karşılaştırma için en az iki tamamlanmış koşum gerekli (farklı iki koşum seçin).</p></div>
+{% else %}
+<p class="muted"><b>{{ a.name }}</b> ({{ rdate(a)|tr('d') }}) → <b>{{ b.name }}</b> ({{ rdate(b)|tr('d') }}) ·
+  eşleşen ortak test {{ res.eslesme.ortak|num }} (%{{ (100 * res.eslesme.oran)|round|int }}, anahtar {{ res.eslesme.anahtar }})</p>
+{{ kpis(sb, sa) }}
+<div class="grid2">
+  <div class="card"><h3>Test geçişleri</h3>
+    <table class="list"><tbody>
+    {% for k in ['Kapandı', 'Geriledi', 'Açık kaldı', 'Yeni test (açık)', 'Yeni test (bloklu)', 'Test edilemedi', 'Bu koşumda test edilemedi', 'Bloklu kaldı', 'İki koşumda da test edilemedi'] %}
+      {% if res.counts.get(k) %}<tr><td>{{ k }}</td><td class="r">{{ res.counts[k]|num }}</td></tr>{% endif %}
+    {% endfor %}</tbody></table>
+  </div>
+  <div class="card"><h3>Kapanan testlerin kaynağı (kural ailesi)</h3>
+    <table class="list"><tbody>{% for k, n in res.aile.items()|sort(attribute='1', reverse=true) %}<tr><td>{{ k }}</td><td class="r">{{ n|num }}</td></tr>{% else %}<tr><td class="muted">Kapanan test yok.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+<div class="tabs"><a href="#kategori">Kategori</a>{% for key, (kind, title, cols) in tables.items() %}<a href="#{{ key }}">{{ title }}</a>{% endfor %}{% if changes %}<a href="#degisiklik">Değişiklikler</a>{% endif %}</div>
+<section class="tab" id="kategori"><div class="card"><table class="list"><thead><tr>{% for c in kat_cols %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>
+  {% for r in kat %}<tr>{% for c in kat_cols %}<td class="{{ 'r' if c != 'Kategori' }}">{{ r[c]|num(1) if 'skor' in c else (r[c]|sgn if c == 'Fark' else r[c]) }}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div></section>
+{% for key, (kind, title, cols) in tables.items() %}
+<section class="tab" id="{{ key }}"><div class="tbl" data-src="{{ url_for('compare_table', name=key, a=a.id, b=b.id) }}"></div></section>
+{% endfor %}
+{% if changes %}<section class="tab" id="degisiklik"><div class="card"><ul class="changes">{% for c in changes %}<li><b>{{ c.tarih }}</b> <span class="tag">{{ c.alan }}</span> {{ c.aciklama }}</li>{% endfor %}</ul></div></section>{% endif %}
+{% endif %}
+{% endblock %}

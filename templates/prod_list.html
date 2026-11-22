@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "macros.html" import badge with context %}
+{% block title %}Prod FP{% endblock %}
+{% block body %}
+<h1>Prod FP analizi</h1>
+<p class="muted">Prod'daki WAF olaylarını (test host'u hariç) Picus kazancıyla birleştirip her kural için karar önerir:
+A doğrudan Block · B exception ile Block · C kapalı kalsın · D saldırı (Picus dışı) Block · E FP (Picus dışı) · <b>F bilinen FP: Block'a alma</b> · <b>G ölçülemedi: önce Log'da doğrula</b>.</p>
+<div class="flash warn">Kapatılmış ya da skip'e alınmış bir kural Cloudflare'de hiç log üretmez. "0 olay" = "FP yok" değildir:
+kuralın prod'da Log'da açık olduğu doğrulanamıyorsa öneri G olur. FP nedeniyle kapattığınız kuralları <a href="{{ url_for('known_fp') }}">Bilinen FP</a> listesine ekleyin.</div>
+{% if me.role == 'admin' %}
+<form method="post" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h3>Yeni tarama</h3>
+  <label>Ad<input name="name" placeholder="ör. Prod 7 gün"></label>
+  <div class="radios" data-toggle="mod">
+    <label><input type="radio" name="mod" value="gun" checked> Son
+      <select name="gun">{% for d in [1, 3, 7, 14] %}<option value="{{ d }}" {{ 'selected' if d == 7 }}>{{ d }} gün</option>{% endfor %}</select></label>
+    <label><input type="radio" name="mod" value="aralik"> Tarih aralığı</label>
+  </div>
+  <div class="row" data-show="mod=aralik">
+    <label>Başlangıç (TR)<input type="datetime-local" name="start"></label>
+    <label>Bitiş (TR)<input type="datetime-local" name="end"></label>
+  </div>
+  <div class="row">
+    <label>Önceki koşum (kazanç için)<select name="a"><option value="">— yok (sadece güncel koşum) —</option>{% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if prev and prev.id == r.id }}>{{ r.name }} · {{ rdate(r)|tr('d') }}</option>{% endfor %}</select></label>
+    <label>Güncel koşum<select name="b"><option value="">— yok —</option>{% for r in runs|reverse %}<option value="{{ r.id }}" {{ 'selected' if cur and cur.id == r.id }}>{{ r.name }} · {{ rdate(r)|tr('d') }}</option>{% endfor %}</select></label>
+  </div>
+  <span class="hint">Picus kazancı = önceki koşumda Not Blocked olup güncel koşumda bu kuralla bloklanan test. Önceki koşum seçilmezse güncel koşumda kuralın blokladığı tüm testler sayılır.</span>
+  <button class="btn primary">Taramayı başlat</button>
+</form>
+{% endif %}
+<div class="card"><table class="list"><thead><tr><th>Tarama</th><th>Aralık (TR)</th><th>Durum</th><th>Oluşturan</th></tr></thead><tbody>
+{% for s in scans %}<tr><td><a href="{{ url_for('prod_detail', sid=s.id) }}">{{ s.name }}</a></td><td>{{ s.start_utc|tr }} – {{ s.end_utc|tr }}</td><td>{{ badge(s.status) }}</td><td>{{ s.created_by }} · {{ s.created_at|tr('d') }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Tarama yok.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

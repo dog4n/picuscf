@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block title %}Ayarlar{% endblock %}
+{% block body %}
+<h1>Ayarlar</h1>
+<form method="post" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="kaydet">
+  <h3>Cloudflare</h3>
+  <p class="muted small">API token sadece sunucudaki <code>.env</code> dosyasında durur (CF_API_TOKEN): {{ 'tanımlı' if token_set else 'TANIMLI DEĞİL' }}.
+   Gerekli yetki: Zone → Analytics → Read. İsteğe bağlı: WAF okuma yetkisi (Prod FP'de kuralların prod'daki durumu).</p>
+  <div class="row">
+    <label>Zone ID<input name="zone_id" value="{{ v.zone_id }}" placeholder="32 karakter" pattern="[0-9a-f]{32}"></label>
+    <label>Test (hedef) host<input name="target_host" value="{{ v.target_host }}" placeholder="test.ornek.com">
+      <span class="hint">Picus'un saldırdığı host. Prod FP analizinde bu host hariç tutulur.</span></label>
+  </div>
+  <label>Picus saldırı IP'leri / CIDR<input name="picus_ips" value="{{ v.picus_ips }}" placeholder="203.0.113.8/29, 198.51.100.4"></label>
+  <div class="row">
+    <label>CF aralığı: öncesi pay (dk)<input name="margin_before_min" value="{{ v.margin_before_min }}"></label>
+    <label>CF aralığı: sonrası pay (dk)<input name="margin_after_min" value="{{ v.margin_after_min }}"></label>
+  </div>
+  <h3>Picus</h3>
+  <p class="muted small">Refresh token <code>.env</code> içinde (PICUS_API_TOKEN): {{ 'tanımlı' if picus_set else 'TANIMLI DEĞİL' }} · API adresi: {{ picus_url }}</p>
+  <label class="check"><input type="checkbox" name="picus_auto" {{ 'checked' if v.picus_auto == '1' }}> Yeni Picus koşumlarını otomatik çek ve analiz et</label>
+  <label>İzlenen simülasyon ID'leri (virgülle)<input name="picus_watch" value="{{ v.picus_watch }}"></label>
+  <div class="row">
+    <label>Kontrol aralığı (dk)<input name="picus_interval_min" value="{{ v.picus_interval_min }}"></label>
+    <label>Koşum bittikten sonra bekleme (dk)<input name="picus_wait_min" value="{{ v.picus_wait_min }}"></label>
+    <label>Geriye bakış (gün)<input name="picus_lookback_days" value="{{ v.picus_lookback_days }}"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="picus_sensitive" {{ 'checked' if v.picus_sensitive == '1' }}> Picus raporunu hassas veriyle (payload) iste <span class="muted">(önerilmez; uygulama payload saklamaz)</span></label>
+  {% if v.picus_last_check %}<p class="muted small">Son otomatik kontrol: {{ v.picus_last_check|tr }}</p>{% endif %}
+  <button class="btn primary">Kaydet</button>
+</form>
+<div class="card actions">
+  {% for op, lbl in [('test', 'Cloudflare bağlantısını test et'), ('picus_test', 'Picus bağlantısını test et'), ('picus_kontrol', 'Picus koşumlarını şimdi kontrol et')] %}
+  <form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="{{ op }}"><button class="btn">{{ lbl }}</button></form>
+  {% endfor %}
+</div>
+<p class="muted small">Veri klasörü: {{ data_dir }}</p>
+{% endblock %}

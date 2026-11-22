@@ -1,0 +1,2 @@
+{% extends "base.html" %}{% block title %}Hata {{ code }}{% endblock %}
+{% block body %}<div class="card narrow"><h1>Hata {{ code }}</h1><p>{{ msg }}</p><p><a href="{{ url_for('dashboard') }}">Panoya dön</a></p></div>{% endblock %}

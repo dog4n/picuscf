@@ -1,0 +1,59 @@
+{% extends "base.html" %}{% from "macros.html" import badge, job, karar_badge with context %}
+{% block title %}{{ sc.name }}{% endblock %}
+{% block body %}
+<div class="head"><h1>{{ sc.name }} {{ badge(sc.status) }}</h1>
+  <div class="actions">{% if T is not none %}<a class="btn" href="{{ url_for('prod_excel', sid=sc.id, a=a.id if a else '', b=b.id if b else '') }}">Excel</a>{% endif %}
+  {% if me.role == 'admin' %}<form method="post" action="{{ url_for('prod_delete', sid=sc.id) }}" class="inline" data-confirm="Tarama silinsin mi?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn danger">Sil</button></form>{% endif %}</div></div>
+<p class="muted">Aralık: {{ sc.start_utc|tr }} – {{ sc.end_utc|tr }} (TR)</p>
+{% if sc.status in ('kuyrukta', 'calisiyor') %}<div class="card">{{ job(url_for('prod_status', sid=sc.id)) }}</div>
+{% elif sc.status == 'hata' %}<div class="flash error">Hata: {{ sc.error }}</div><details class="card"><summary>Günlük</summary><pre class="log">{{ sc.log }}</pre></details>
+{% endif %}
+{% if T is not none %}
+{% for w in warns %}<div class="flash warn">{{ w }}</div>{% endfor %}
+{% if not states_ok %}<div class="flash warn">Kuralların prod'daki durumu (açık/kapalı) okunamadı. Prod'da olayı olmayan kurallar "G – Ölçülemedi" olarak işaretlendi.</div>{% endif %}
+{% if not known_n %}<div class="flash warn">Bilinen FP listesi boş. FP nedeniyle kapattığınız kuralları <a href="{{ url_for('known_fp') }}">buraya</a> ekleyin; bu kurallar asla doğrudan Block önerilmez.</div>{% endif %}
+<form method="get" class="card row">
+  <label>Önceki koşum<select name="a"><option value="">— yok —</option>{% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if a and a.id == r.id }}>{{ r.name }} · {{ rdate(r)|tr('d') }}</option>{% endfor %}</select></label>
+  <label>Güncel koşum<select name="b"><option value="">— yok —</option>{% for r in runs|reverse %}<option value="{{ r.id }}" {{ 'selected' if b and b.id == r.id }}>{{ r.name }} · {{ rdate(r)|tr('d') }}</option>{% endfor %}</select></label>
+  <button class="btn">Kazancı yeniden hesapla</button>
+</form>
+<div class="kpis">
+{% for o in oz %}<a class="kpi link {{ 'sel' if k == o.karar }}" href="{{ url_for('prod_detail', sid=sc.id, k='' if k == o.karar else o.karar, a=a.id if a else '', b=b.id if b else '') }}">
+  <div class="l">{{ karar_badge(o.karar) }} {{ o.etiket[4:] }}</div><div class="v">{{ o.kural }}</div>
+  <div class="d">Picus testi {{ o.kazanc|num }} · prod log {{ o.prod_olay|num }}</div></a>{% endfor %}
+</div>
+<form method="get" class="row small">
+  <input type="hidden" name="a" value="{{ a.id if a else '' }}"><input type="hidden" name="b" value="{{ b.id if b else '' }}">
+  <label>Karar<select name="k" data-autosubmit><option value="">Tümü</option>{% for kk, v in KARARLAR.items() %}<option value="{{ kk }}" {{ 'selected' if k == kk }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Uygulama durumu<select name="du" data-autosubmit><option value="">Tümü</option>{% for d in DURUMLAR %}<option {{ 'selected' if du == d }}>{{ d }}</option>{% endfor %}</select></label>
+  <span class="muted">{{ T|length }} / {{ total }} kural</span>
+</form>
+<div class="card scroll"><table class="list dense">
+<thead><tr><th>Karar</th><th>Uygulama</th><th>Kural</th><th>Ruleset</th><th class="r">Picus kazancı</th><th class="r">Güncelde bloklayan</th><th class="r">Prod log</th><th>Prod aksiyonları</th><th>Prod'daki durum</th><th>Exception</th><th class="r">Kalan</th><th>Not</th><th>En çok host/path</th><th class="r">TR</th><th class="r">İnsan</th></tr></thead>
+<tbody>
+{% set nxt = request.full_path %}
+{% for r in T.itertuples() %}
+<tr class="{{ 'fp' if r.bilinen_fp }}">
+  <td>{% if me.role == 'admin' %}<form method="post" action="{{ url_for('prod_decide', sid=sc.id) }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="rule_id" value="{{ r.rule_id }}"><input type="hidden" name="next" value="{{ nxt }}">
+      <select name="karar" data-autosubmit class="k{{ r.karar }}"><option value="">öneri: {{ r.oneri }}</option>{% for kk in KARARLAR %}<option value="{{ kk }}" {{ 'selected' if r.elle and r.karar == kk }}>{{ kk }}</option>{% endfor %}</select></form>
+      {% else %}{{ karar_badge(r.karar) }}{% endif %}{% if r.bilinen_fp %} <span class="tag red">bilinen FP</span>{% endif %}</td>
+  <td>{% if me.role == 'admin' %}<form method="post" action="{{ url_for('prod_decide', sid=sc.id) }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="rule_id" value="{{ r.rule_id }}"><input type="hidden" name="next" value="{{ nxt }}">
+      <select name="durum" data-autosubmit>{% for d in DURUMLAR %}<option {{ 'selected' if r.durum == d }}>{{ d }}</option>{% endfor %}</select></form>{% else %}{{ r.durum }}{% endif %}
+      {% if r.durum_bilgi %}<div class="muted small">{{ r.durum_bilgi }}</div>{% endif %}</td>
+  <td><a href="{{ url_for('prod_rule', sid=sc.id, rid=r.rule_id, a=a.id if a else '', b=b.id if b else '') }}">{{ r.kural or r.rule_id }}</a><div class="muted small mono">{{ r.rule_id }}</div></td>
+  <td>{{ r.ruleset }}</td><td class="r">{{ r.kazanc|num }}</td><td class="r">{{ r.bloklayan|num }}</td><td class="r">{{ r.prod_olay|num }}</td>
+  <td class="small">{{ r.prod_aksiyon }}</td><td class="small">{{ r.cf_durum or '—' }}</td>
+  <td>{{ r.exception }}</td><td class="r">{{ r.kalan|num }}</td><td class="w">{{ r.notu }}</td><td class="w small">{{ r.top }}</td>
+  <td class="r">{{ r.tr|pct }}</td><td class="r">{{ r.insan|pct }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+
+<div class="card"><h3>Exception'lar</h3>
+<table class="list"><thead><tr><th>ID</th><th>Ne için</th><th>Expression</th><th>Uygulama</th><th class="r">Kapsadığı olay</th><th>Durum</th><th></th></tr></thead><tbody>
+{% for e in E %}<tr><td>{{ e.code }}</td><td>{{ e.ad }}</td><td class="mono small w">{{ e.expression }}</td><td class="small w">{{ e.uygulama }}</td><td class="r">{{ e.kapsadigi_olay|num }}</td><td>{{ 'aktif' if e.aktif else 'pasif' }}</td>
+  <td>{% if me.role == 'admin' %}{% for op, lbl in [('aktif', 'aç/kapat'), ('sil', 'sil')] %}<form method="post" action="{{ url_for('exception_edit') }}" class="inline" {% if op == 'sil' %}data-confirm="Silinsin mi?"{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="{{ op }}"><input type="hidden" name="id" value="{{ e.id }}"><input type="hidden" name="next" value="{{ request.full_path }}"><button class="link">{{ lbl }}</button></form>{% endfor %}{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">Exception yok. Kural sayfasından taslak oluşturabilirsiniz.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endblock %}

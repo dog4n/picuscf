@@ -1,0 +1,37 @@
+{% macro kpi(label, value, prev=None, unit='', better='up', dec=0, note='') -%}
+<div class="kpi">
+  <div class="l">{{ label }}</div>
+  <div class="v">{% if value is none %}—{% else %}{{ unit }}{{ value|num(dec) }}{% endif %}</div>
+  {% if prev is not none and value is not none %}
+    {% set d = value - prev %}
+    {% set good = (d > 0 and better == 'up') or (d < 0 and better == 'down') %}
+    <div class="d {{ 'good' if good else ('bad' if d != 0 else '') }}">{{ d|sgn(dec) }} önceki koşuma göre</div>
+  {% elif note %}<div class="d">{{ note }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro kpis(s, p=None) -%}
+<div class="kpis">
+  {{ kpi('Aksiyon skoru (%)', s.skor, p.skor if p else none, '%', 'up', 1) }}
+  {{ kpi('Not Blocked test', s.not_blocked, p.not_blocked if p else none, '', 'down') }}
+  {{ kpi('Bloklanmayan aksiyon', s.nb_aksiyon, p.nb_aksiyon if p else none, '', 'down') }}
+  {{ kpi('Kritik', s.kritik, p.kritik if p else none, '', 'down') }}
+  {{ kpi('Yüksek', s.yuksek, p.yuksek if p else none, '', 'down') }}
+  {% if s.kirilgan is none %}{{ kpi('Kırılgan blok', none, none, '', 'down', 0, 'CF verisi yok') }}
+  {% else %}{{ kpi('Kırılgan blok', s.kirilgan, p.kirilgan if p and p.kirilgan is not none else none, '', 'down') }}{% endif %}
+  {% if s.kampanya_toplam %}{{ kpi('Kampanya Blocked', s.kampanya_blocked, p.kampanya_blocked if p and p.kampanya_blocked is not none else none, '', 'up', 0, 'toplam ' ~ s.kampanya_toplam) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro badge(st) -%}<span class="badge st-{{ st }}">{{ STATUS.get(st, st) }}</span>{%- endmacro %}
+
+{% macro karar_badge(k) -%}<span class="kb k{{ k }}">{{ k }}</span>{%- endmacro %}
+
+{% macro job(url) -%}
+<div class="job" data-status="{{ url }}">
+  <div class="bar"><span style="width:0%"></span></div>
+  <pre class="log"></pre>
+</div>
+{%- endmacro %}
+
+{% macro csrf_field() -%}<input type="hidden" name="csrf" value="{{ csrf }}">{%- endmacro %}

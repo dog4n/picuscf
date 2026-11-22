@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Değişiklikler{% endblock %}
+{% block body %}
+<h1>Değişiklik kayıtları</h1>
+<p class="muted">Cloudflare'de yapılan değişiklikleri (kural açma, exception, eşik) tarihleriyle kaydedin; pano ve karşılaştırmada koşumlar arasında gösterilir.</p>
+{% if me.role == 'admin' %}
+<form method="post" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="row">
+    <label>Tarih<input type="date" name="tarih" value="{{ today }}" required></label>
+    <label>Alan<select name="alan">{% for a in alanlar %}<option>{{ a }}</option>{% endfor %}</select></label>
+  </div>
+  <label>Açıklama<textarea name="aciklama" rows="2" required></textarea></label>
+  <button class="btn primary">Ekle</button>
+</form>
+{% endif %}
+<div class="card"><table class="list"><thead><tr><th>Tarih</th><th>Alan</th><th>Açıklama</th><th>Ekleyen</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.tarih }}</td><td>{{ r.alan }}</td><td>{{ r.aciklama }}</td><td>{{ r.created_by }}</td>
+  <td>{% if me.role == 'admin' %}<form method="post" class="inline" data-confirm="Silinsin mi?"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="sil"><input type="hidden" name="id" value="{{ r.id }}"><button class="link">sil</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Kayıt yok.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

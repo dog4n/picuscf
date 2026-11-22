@@ -1,0 +1,53 @@
+{% extends "base.html" %}{% block title %}Yeni koşum{% endblock %}
+{% block body %}
+<h1>Yeni koşum</h1>
+<form method="post" enctype="multipart/form-data" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Koşum adı<input name="name" value="{{ d.name or '' }}" placeholder="ör. WAF Full Coverage – Kasım"></label>
+
+  <fieldset>
+    <legend>Picus sonuçları</legend>
+    <div class="radios" data-toggle="picus_source">
+      <label><input type="radio" name="picus_source" value="api" {{ 'checked' if (d.picus_source or ('api' if picus_ok else 'csv')) == 'api' }} {{ '' if picus_ok else 'disabled' }}> Picus API{% if not picus_ok %} <span class="muted">(PICUS_API_TOKEN yok)</span>{% endif %}</label>
+      <label><input type="radio" name="picus_source" value="csv" {{ 'checked' if (d.picus_source or ('api' if picus_ok else 'csv')) == 'csv' }}> CSV yükle</label>
+    </div>
+    <div data-show="picus_source=api">
+      <div class="row">
+        <label>Simülasyon<select name="picus_sim" id="picus_sim" data-runs="picus_run"><option value="">— yükleniyor —</option></select></label>
+        <label>Koşum<select name="picus_run" id="picus_run"><option value="">—</option></select></label>
+      </div>
+      <button type="button" class="btn" id="picus_load">Simülasyonları getir</button>
+      <label>Picus rapor no (isteğe bağlı)<input name="picus_report" value="{{ d.picus_report or '' }}" placeholder="Picus'ta elle üretilen raporun numarası">
+        <span class="hint">Token'da rapor üretme yetkisi (write:simulations) yoksa Picus arayüzünde raporu üretip numarasını yazın; uygulama yalnızca indirir.</span></label>
+    </div>
+    <div data-show="picus_source=csv">
+      <label>Picus "Threat Result Table" CSV<input type="file" name="picus" accept=".csv"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cloudflare logları</legend>
+    <div class="radios" data-toggle="source">
+      <label><input type="radio" name="source" value="api" {{ 'checked' if (d.source or 'api') == 'api' }} {{ '' if cf_ok else 'disabled' }}> Cloudflare API{% if not cf_ok %} <span class="muted">(CF_API_TOKEN yok)</span>{% endif %}</label>
+      <label><input type="radio" name="source" value="csv" {{ 'checked' if d.source == 'csv' or not cf_ok }}> CSV yükle</label>
+    </div>
+    <div data-show="source=api">
+      <div class="row">
+        <label>Hedef host<input name="host" value="{{ d.host or '' }}" placeholder="test.ornek.com"></label>
+        <label>Picus IP'leri / CIDR<input name="ips" value="{{ d.ips or '' }}" placeholder="203.0.113.8/29"></label>
+      </div>
+      <div class="row">
+        <label>CF aralığı başlangıç (TR, isteğe bağlı)<input type="datetime-local" name="start" value="{{ d.start or '' }}"></label>
+        <label>CF aralığı bitiş (TR, isteğe bağlı)<input type="datetime-local" name="end" value="{{ d.end or '' }}"></label>
+      </div>
+      <span class="hint">Boş bırakılırsa aralık Picus koşumundan hesaplanır (öncesi/sonrası payı Ayarlar'da).</span>
+    </div>
+    <div data-show="source=csv">
+      <label>HTTP istekleri CSV (httpRequestsAdaptive)<input type="file" name="cf_http" accept=".csv"></label>
+      <label>Güvenlik olayları CSV (firewallEventsAdaptive, isteğe bağlı)<input type="file" name="cf_events" accept=".csv"></label>
+    </div>
+  </fieldset>
+  <label>Not<textarea name="notes" rows="2">{{ d.notes or '' }}</textarea></label>
+  <button class="btn primary">Oluştur ve analiz et</button>
+</form>
+{% endblock %}

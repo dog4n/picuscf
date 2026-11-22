@@ -1,0 +1,68 @@
+{% extends "base.html" %}{% from "macros.html" import karar_badge with context %}
+{% block title %}{{ r.kural }}{% endblock %}
+{% block body %}
+<p><a href="{{ url_for('prod_detail', sid=sc.id, a=a.id if a else '', b=b.id if b else '') }}">← {{ sc.name }}</a></p>
+<h1>{{ r.kural or r.rule_id }}</h1>
+<p class="muted mono">{{ r.rule_id }} · {{ r.ruleset }}</p>
+{% if known %}<div class="flash error">Bu kural <b>bilinen FP</b> listesinde{% if known.note %}: {{ known.note }}{% endif %}. Exception tasarlanıp Log'da ölçülmeden Block'a alınmamalı.</div>{% endif %}
+<div class="kpis">
+  <div class="kpi"><div class="l">Karar</div><div class="v">{{ karar_badge(r.karar) }}</div><div class="d">öneri {{ r.oneri }}{% if r.elle %} · elle değiştirildi{% endif %}</div></div>
+  <div class="kpi"><div class="l">Picus kazancı</div><div class="v">{{ r.kazanc|num }}</div><div class="d">güncelde bloklayan {{ r.bloklayan|num }}</div></div>
+  <div class="kpi"><div class="l">Prod Log olayı</div><div class="v">{{ r.prod_olay|num }}</div><div class="d">{{ r.host_sayisi }} host · {{ r.prod_aksiyon or 'olay yok' }}</div></div>
+  <div class="kpi"><div class="l">TR / insan</div><div class="v">{{ r.tr|pct }} / {{ r.insan|pct }}</div><div class="d">insan: bot score ≥ 30 (örneklerden)</div></div>
+  <div class="kpi"><div class="l">Prod'daki durum</div><div class="v small">{{ r.cf_durum or 'bilinmiyor' }}</div><div class="d">Cloudflare kural ayarından</div></div>
+</div>
+<p class="note">{{ r.notu }}</p>
+
+{% if me.role == 'admin' %}
+<form method="post" action="{{ url_for('prod_decide', sid=sc.id) }}" class="card form">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="rule_id" value="{{ r.rule_id }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+  <div class="row">
+    <label>Karar<select name="karar"><option value="">öneriyi kullan ({{ r.oneri }})</option>{% for kk, v in KARARLAR.items() %}<option value="{{ kk }}" {{ 'selected' if r.elle and r.karar == kk }}>{{ v }}</option>{% endfor %}</select></label>
+  </div>
+  <label>Not<textarea name="note" rows="2">{{ r.notu if r.elle else '' }}</textarea></label>
+  <button class="btn primary">Kaydet</button>
+</form>
+{% endif %}
+
+{% if dep %}
+<div class="card"><h3>Cloudflare'deki dağıtımlar</h3>
+<table class="list"><thead><tr><th>Dağıtım</th><th>Aksiyon</th><th>Expression</th></tr></thead><tbody>
+{% for d in dep %}<tr><td>{{ d.ad or '—' }}{% if d.test %} <span class="tag">test</span>{% endif %}</td><td>{{ d.aksiyon }}</td><td class="mono small w">{{ d.expression }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+
+<div class="grid2">
+<div class="card"><h3>Host / path (test host'u hariç)</h3>
+<table class="list dense"><thead><tr><th>Aksiyon</th><th>Host</th><th>Method</th><th>Path (normalize)</th><th class="r">Olay</th></tr></thead><tbody>
+{% for x in hostpath %}<tr><td>{{ x.action }}</td><td>{{ x.clientRequestHTTPHost }}</td><td>{{ x.clientRequestHTTPMethodName }}</td><td class="w mono small">{{ x.clientRequestPath }}</td><td class="r">{{ x.olay|num }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Olay yok.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card"><h3>Ülke</h3><table class="list dense"><tbody>{% for x in ulke %}<tr><td>{{ x.clientCountryName }}</td><td class="r">{{ x.olay|num }}</td></tr>{% endfor %}</tbody></table>
+<h3>ASN</h3><table class="list dense"><tbody>{% for x in asn[:25] %}<tr><td>{{ x.clientASNDescription }}</td><td>{{ x.clientCountryName }}</td><td class="r">{{ x.olay|num }}</td></tr>{% endfor %}</tbody></table></div>
+</div>
+
+{% if me.role == 'admin' %}
+<form method="post" action="{{ url_for('exception_edit') }}" class="card form">
+  <h3>Exception taslağı</h3>
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="ekle"><input type="hidden" name="next" value="{{ request.full_path }}">
+  <label>Ne için<input name="ad" placeholder="ör. Dosya yükleme uç noktası"></label>
+  <div class="row">
+    <label>Host'lar (satır başına)<textarea name="hosts" rows="3">{% for x in hostpath[:3] %}{{ x.clientRequestHTTPHost }}
+{% endfor %}</textarea></label>
+    <label>Path eşittir (satır başına)<textarea name="path_eq" rows="3"></textarea></label>
+    <label>Path ile başlar (satır başına)<textarea name="path_prefix" rows="3"></textarea></label>
+  </div>
+  <label>Kurallar (ID)<input name="rules" value="{{ r.rule_id }}"></label>
+  <label>Ya da hazır Cloudflare expression<input name="expression" placeholder='(http.host eq "app.ornek.com" and starts_with(http.request.uri.path, "/upload/"))'></label>
+  <label>Not<input name="note"></label>
+  <button class="btn">Exception ekle</button>
+  <span class="hint">Host/path ile tanımlanan exception'ın kapsadığı olay ve kalan olay otomatik hesaplanır.</span>
+</form>
+{% endif %}
+
+<div class="card scroll"><h3>Örnek olaylar</h3>
+<table class="list dense"><thead><tr><th>Zaman</th><th>Aksiyon</th><th>IP</th><th>Ülke</th><th>ASN</th><th>Host</th><th>Method</th><th>Path</th><th>User-Agent</th><th class="r">Bot</th><th class="r">Attack</th></tr></thead><tbody>
+{% for x in samples %}<tr><td>{{ x.datetime|tr('s') }}</td><td>{{ x.action }}</td><td class="mono">{{ x.clientIP }}</td><td>{{ x.clientCountryName }}</td><td class="small">{{ x.clientASNDescription }}</td><td>{{ x.clientRequestHTTPHost }}</td><td>{{ x.clientRequestHTTPMethodName }}</td><td class="w mono small">{{ x.clientRequestPath }}</td><td class="w small">{{ x.userAgent }}</td><td class="r">{{ x.botScore }}</td><td class="r">{{ x.wafAttackScore }}</td></tr>
+{% else %}<tr><td colspan="11" class="muted">Örnek yok.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

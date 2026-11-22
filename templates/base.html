@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Picus × Cloudflare{% endblock %} · WAF Platformu</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+{% if me %}
+<header class="top">
+  <a class="brand" href="{{ url_for('dashboard') }}">Picus × Cloudflare <span>WAF Platformu</span></a>
+  <nav>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'on' if request.endpoint == 'dashboard' }}">Pano</a>
+    <a href="{{ url_for('compare') }}" class="{{ 'on' if request.endpoint == 'compare' }}">Karşılaştır</a>
+    <a href="{{ url_for('prod_list') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('prod') }}">Prod FP</a>
+    <a href="{{ url_for('known_fp') }}" class="{{ 'on' if request.endpoint in ('known_fp', 'list_check') }}">Bilinen FP</a>
+    <a href="{{ url_for('changes') }}" class="{{ 'on' if request.endpoint == 'changes' }}">Değişiklikler</a>
+    {% if me.role == 'admin' %}
+    <a href="{{ url_for('run_new') }}" class="{{ 'on' if request.endpoint == 'run_new' }}">+ Koşum</a>
+    <a href="{{ url_for('settings') }}" class="{{ 'on' if request.endpoint == 'settings' }}">Ayarlar</a>
+    <a href="{{ url_for('users') }}" class="{{ 'on' if request.endpoint == 'users' }}">Kullanıcılar</a>
+    {% endif %}
+  </nav>
+  <div class="who">
+    {{ me.username }} · {{ ROLES[me.role] }}
+    <a href="{{ url_for('password') }}">Şifre</a>
+    <form method="post" action="{{ url_for('logout') }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Çıkış</button></form>
+  </div>
+</header>
+{% endif %}
+<main class="{% block mainclass %}{% endblock %}">
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  {% block body %}{% endblock %}
+</main>
+</body>
+</html>

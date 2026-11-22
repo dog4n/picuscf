@@ -1,0 +1,96 @@
+{% extends "base.html" %}{% from "macros.html" import kpis, badge, job with context %}
+{% block title %}{{ run.name }}{% endblock %}
+{% block body %}
+<div class="head">
+  <h1>{{ run.name }} {{ badge(run.status) }}</h1>
+  <div class="actions">
+    {% if s %}
+    <a class="btn" href="{{ url_for('run_excel', run_id=run.id) }}">Excel</a>
+    <a class="btn" href="{{ url_for('run_report', run_id=run.id) }}">Risk raporu</a>
+    {% if prev %}<a class="btn" href="{{ url_for('compare', a=prev.id, b=run.id) }}">Öncekiyle karşılaştır</a>{% endif %}
+    {% endif %}
+  </div>
+</div>
+<p class="muted">
+  Koşum tarihi: <b>{{ rdate(run)|tr }}</b> · CF aralığı: {{ run.start_utc|tr }} – {{ run.end_utc|tr }}{% if run.window_fixed %} (elle){% endif %}
+  · Picus: {{ 'API' if run.picus_source == 'api' else 'CSV' }}{% if run.picus_sim_id %} (simülasyon {{ run.picus_sim_id }}, koşum {{ run.picus_run_id }}{% if run.picus_report %}, rapor {{ run.picus_report }}{% endif %}){% endif %}
+  · CF: {{ 'API' if run.source == 'api' else 'CSV' }}{% if run.host %} · host {{ run.host }}{% endif %}
+  {% if run.origin == 'otomatik' %} · <span class="tag">otomatik</span>{% endif %}
+</p>
+{% if run.notes %}<p class="note">{{ run.notes }}</p>{% endif %}
+
+{% if run.status in ('kuyrukta', 'calisiyor') %}
+  <div class="card">{{ job(url_for('run_status', run_id=run.id)) }}</div>
+{% elif run.status == 'hata' %}
+  <div class="flash error">Hata: {{ run.error }}</div>
+  <details class="card"><summary>İş günlüğü</summary><pre class="log">{{ run.log }}</pre></details>
+{% endif %}
+
+{% for w in warns %}<div class="flash warn">{{ w }}</div>{% endfor %}
+
+{% if s %}
+{{ kpis(s, ps) }}
+<p class="muted small">Test {{ s.test|num }} · Blocked {{ s.blocked|num }} · Not Blocked {{ s.not_blocked|num }} · Not Tested {{ s.not_tested|num }}
+ · CF eşleşen {{ s.eslesen|num }}{% if s.eslesen_display_id %} ({{ s.eslesen_display_id }} display ID ile){% endif %}
+ · CF istek {{ s.cf_istek|num }} · CF olay {{ s.cf_olay|num }}</p>
+
+<div class="tabs">
+  <a href="#ozet">Özet</a><a href="#aksiyonlar">Bloklanmayan aksiyonlar</a><a href="#testler">Tüm testler</a>
+  <a href="#kategoriler">Kategoriler</a><a href="#kurallar">Kural isabetleri</a><a href="#log_block">Log→Block</a><a href="#kirilgan">Kırılgan bloklar</a>
+  {% if changes %}<a href="#degisiklik">Değişiklikler</a>{% endif %}
+</div>
+
+<section class="tab" id="ozet">
+  <div class="grid2">
+    <div class="card"><h3>Cloudflare kararları</h3>
+      <table class="list"><thead><tr><th>CF kararı</th><th class="r">Blocked</th><th class="r">Not Blocked</th><th class="r">Not Tested</th></tr></thead><tbody>
+      {% for k, bl, nb, nt, tot in cf_rows %}
+        <tr><td>{{ k }}</td><td class="r">{{ bl|num }}</td><td class="r">{{ nb|num }}</td><td class="r">{{ nt|num }}</td></tr>
+      {% endfor %}</tbody></table>
+    </div>
+    <div class="card"><h3>Bloklayan kural ailesi (Blocked testler)</h3>
+      <table class="list"><tbody>{% for k, n in s.kural_ailesi.items()|sort(attribute='1', reverse=true) %}<tr><td>{{ k or '—' }}</td><td class="r">{{ n|num }}</td></tr>{% endfor %}</tbody></table>
+    </div>
+  </div>
+  <div class="card"><h3>Kategori bazında</h3>
+    <table class="list"><thead><tr><th>Kategori</th><th class="r">Test</th><th class="r">Skor</th><th class="r">NB aksiyon</th><th class="r">Kritik</th><th class="r">Yüksek</th><th class="r">Kırılgan</th></tr></thead><tbody>
+    {% for k, m in s.kategori.items()|sort(attribute='1.nb_aksiyon', reverse=true) %}
+      <tr><td>{{ k }}</td><td class="r">{{ m.test|num }}</td><td class="r">{{ m.skor|num(1) }}</td><td class="r">{{ m.nb_aksiyon|num }}</td><td class="r">{{ m.kritik|num }}</td><td class="r">{{ m.yuksek|num }}</td><td class="r">{{ m.kirilgan|num }}</td></tr>
+    {% endfor %}</tbody></table>
+  </div>
+</section>
+{% for key, (kind, title, cols) in tables.items() %}
+<section class="tab" id="{{ key }}"><div class="tbl" data-src="{{ url_for('run_table', run_id=run.id, name=key) }}"></div></section>
+{% endfor %}
+{% if changes %}
+<section class="tab" id="degisiklik"><div class="card"><h3>Önceki koşumdan bu yana kayıtlı değişiklikler</h3>
+  <ul class="changes">{% for c in changes %}<li><b>{{ c.tarih }}</b> <span class="tag">{{ c.alan }}</span> {{ c.aciklama }}</li>{% endfor %}</ul></div></section>
+{% endif %}
+{% endif %}
+
+{% if me.role == 'admin' %}
+<details class="card"><summary>Koşum işlemleri</summary>
+  <div class="actions">
+    {% for op, lbl in [('analiz', 'Yeniden analiz et')] + ([('cek', 'CF verisini yeniden çek')] if run.source == 'api' else []) + ([('picus', "Picus'tan yeniden çek")] if run.picus_source == 'api' else []) %}
+    <form method="post" action="{{ url_for('run_action', run_id=run.id) }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="{{ op }}"><button class="btn">{{ lbl }}</button></form>
+    {% endfor %}
+    <form method="post" action="{{ url_for('run_action', run_id=run.id) }}" class="inline" data-confirm="Koşum ve tüm verisi silinsin mi?"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="sil"><button class="btn danger">Sil</button></form>
+  </div>
+  <form method="post" action="{{ url_for('run_action', run_id=run.id) }}" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="islem" value="duzenle">
+    <div class="row">
+      <label>Ad<input name="name" value="{{ run.name }}"></label>
+      <label>Koşum tarihi (TR)<input type="datetime-local" name="run_date" value="{{ rdate(run)|trinput }}"></label>
+      {% if run.picus_source == 'api' %}<label>Picus rapor no<input name="picus_report" value="{{ run.picus_report or '' }}"></label>{% endif %}
+    </div>
+    <div class="row">
+      <label>CF aralığı başlangıç (TR)<input type="datetime-local" name="start" value="{{ run.start_utc|trinput }}"></label>
+      <label>CF aralığı bitiş (TR)<input type="datetime-local" name="end" value="{{ run.end_utc|trinput }}"></label>
+    </div>
+    <label>Not<textarea name="notes" rows="2">{{ run.notes or '' }}</textarea></label>
+    <button class="btn">Kaydet</button>
+    <span class="hint">Koşum tarihi, koşumların sıralamasını ve karşılaştırma yönünü belirler.</span>
+  </form>
+</details>
+{% endif %}
+{% endblock %}
